@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1us/1ns
 
 module tb ();
 
@@ -11,7 +11,6 @@ module tb ();
     wire [7:0] uio_out;
     wire [7:0] uio_oe;
 
-    // Instancia del DUT
     tt_um_Richard_Tarqui_contador_uart_simple dut (
         .ui_in   (ui_in),
         .uo_out  (uo_out),
@@ -23,11 +22,9 @@ module tb ();
         .rst_n   (rst_n)
     );
 
-    // Clock 50 MHz → periodo 20 ns
     initial clk = 0;
-    always #10 clk = ~clk;
+    always #5 clk = ~clk;  // 10 us periodo = 100 KHz
 
-    // Volcado de formas de onda
     initial begin
         $dumpfile("tb.fst");
         $dumpvars(0, tb);
