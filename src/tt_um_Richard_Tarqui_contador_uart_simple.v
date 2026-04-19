@@ -74,11 +74,10 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         end
     end
 
-    assign uo_out[0]  = tx;
-    assign uo_out[1]  = activo;
+    assign uo_out[0]   = tx;
+    assign uo_out[1]   = activo;
     assign uo_out[7:2] = 6'b0;
-
-    assign uio_out = 8'b0;
-    assign uio_oe  = 8'b0;
+    assign uio_out     = 8'b0;
+    assign uio_oe      = 8'b0;
 
 endmodule
