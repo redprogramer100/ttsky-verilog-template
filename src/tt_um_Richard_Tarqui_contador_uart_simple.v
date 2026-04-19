@@ -4,25 +4,18 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     input  wire [7:0] uio_in,
     output wire [7:0] uio_out,
     output wire [7:0] uio_oe,
-    input  wire       ena,      
+    input  wire       ena,
     input  wire       clk,
     input  wire       rst_n
 );
+    // Suprimir warnings de pines no usados
+    wire _unused = &{ena, uio_in, ui_in[7:1]};
 
-    // =========================
-    // MAPEO DE ENTRADAS
-    // =========================
-    wire rx = ui_in[0];
-
-    // reset activo alto interno
+    wire rx  = ui_in[0];
     wire rst = ~rst_n;
 
-    // =========================
-    // SEÑALES INTERNAS
-    // =========================
     wire tx;
     wire activo;
-
     wire [7:0] rx_data;
     wire rx_valid;
 
@@ -55,12 +48,9 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .activo_o(activo)
     );
 
-    // =========================
-    // UART TX
-    // =========================
     wire tx_ready;
-    reg tx_valid;
-    reg [7:0] tx_data;
+    reg  tx_valid;
+    reg  [7:0] tx_data;
 
     uart_tx u_tx (
         .clk_i(clk),
@@ -77,7 +67,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
             tx_data  <= 0;
         end else begin
             tx_valid <= 0;
-
             if (tx_ready) begin
                 tx_data  <= {7'b0, activo};
                 tx_valid <= 1;
@@ -85,15 +74,11 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         end
     end
 
-    // =========================
-    // SALIDAS
-    // =========================
-    assign uo_out[0] = tx;
-    assign uo_out[1] = activo;
-    assign uo_out[7:2] = 0;
+    assign uo_out[0]  = tx;
+    assign uo_out[1]  = activo;
+    assign uo_out[7:2] = 6'b0;
 
-    // No usamos IO bidireccional
-    assign uio_out = 0;
-    assign uio_oe  = 0;
+    assign uio_out = 8'b0;
+    assign uio_oe  = 8'b0;
 
 endmodule
