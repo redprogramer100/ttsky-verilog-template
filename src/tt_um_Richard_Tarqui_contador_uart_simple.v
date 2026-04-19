@@ -1,4 +1,4 @@
-module tt_um_Richard_Tarqui_contador_uart_simple (
+module tt_um_redprogramer100 (
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
     input  wire [7:0] uio_in,
