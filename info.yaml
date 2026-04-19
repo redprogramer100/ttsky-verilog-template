@@ -4,7 +4,7 @@ project:
   title:       "Contador UART Simple"
   author:      "Richard Tarqui"
   discord:     ""
-  description: "Timer countdown controlado por UART. Recibe comandos serie a 9600 baud y reporta estado activo/inactivo por TX."
+  description: "Timer countdown controlado por UART. Recibe comandos serie a 115200 baud y reporta estado activo/inactivo por TX."
   language:    "Verilog"
   clock_hz:    50000000
 
@@ -20,7 +20,7 @@ project:
     - timer_simple.v
 
   pinout:
-    ui[0]: "RX - UART input 9600 baud 8N1"
+    ui[0]: "RX - UART input 115200 baud 8N1"
     ui[1]: ""
     ui[2]: ""
     ui[3]: ""
@@ -28,7 +28,7 @@ project:
     ui[5]: ""
     ui[6]: ""
     ui[7]: ""
-    uo[0]: "TX - UART output 9600 baud 8N1"
+    uo[0]: "TX - UART output 115200 baud 8N1"
     uo[1]: "activo - HIGH while timer is running"
     uo[2]: ""
     uo[3]: ""
@@ -47,20 +47,24 @@ project:
 
   how_it_works: |
     This project implements a simple UART-controlled countdown timer.
-    It receives commands via UART (9600 baud, 8N1) on pin ui_in[0] (RX).
+    It receives commands via UART (115200 baud, 8N1) on pin ui_in[0] (RX).
     The incoming byte is decoded by cmd_decoder which extracts whether
     to start the timer and the duration (up to 24 bits). Once started,
     timer_simple counts down using the system clock. While running,
     the activo signal is HIGH. Status is continuously transmitted back
     via UART TX on uo_out[0]: 0x01 while active, 0x00 when finished.
+    Commands: send 'R' (0x52) to reset, 'I' (0x49) to start immediately,
+    or 'T' (0x54) followed by 3 bytes for a custom countdown duration.
 
   how_to_test: |
     Connect a USB-to-UART adapter (3.3V) to the board:
     TX of adapter to ui_in[0], RX of adapter to uo_out[0].
-    Open a serial terminal at 9600 baud, 8N1, no parity.
-    Send a command byte encoding start=1 and a countdown duration.
-    Observe uo_out[1] (activo) go HIGH, then LOW when done.
-    Read the UART RX stream: 0x01 while running, 0x00 when finished.
+    Open a serial terminal at 115200 baud, 8N1, no parity.
+    Send 'I' (0x49) to start the timer immediately.
+    Send 'T' (0x54) followed by 3 bytes for a custom countdown, e.g. 0x00 0x00 0x05 for 5 seconds.
+    Send 'R' (0x52) to reset the timer.
+    Observe uo_out[1] (activo) go HIGH while timer runs, LOW when done.
+    Read UART RX stream: 0x01 while running, 0x00 when finished.
 
   external_hardware: |
     USB-to-UART adapter 3.3V logic (e.g. FTDI FT232RL or CP2102).
