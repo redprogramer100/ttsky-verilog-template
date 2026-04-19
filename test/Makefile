@@ -8,9 +8,7 @@ VERILOG_SOURCES += $(PWD)/../src/uart_tx.v
 VERILOG_SOURCES += $(PWD)/../src/cmd_decoder.v
 VERILOG_SOURCES += $(PWD)/../src/timer_simple.v
 
-PROJECT_SOURCES = tt_um_Richard_Tarqui_contador_uart_simple.v
-
 TOPLEVEL = tb
-MODULE = test
+MODULE   = test
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
