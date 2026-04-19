@@ -1,56 +1,70 @@
-# Tiny Tapeout project information
+# Tiny Tapeout project info
 project:
-  title:        "UART Programmable Timer"
+  title:        "Contador UART Simple"
   author:       "Richard Tarqui"
-  discord:      ""  
-  description:  "UART-controlled programmable timer with status transmission"
+  discord:      ""          # tu usuario de Discord si tienes (opcional)
+  description:  "Timer countdown controlado por UART. Recibe comandos serie a 9600 baud y reporta el estado activo/inactivo por TX."
   language:     "Verilog"
-  clock_hz:     50000000
+  clock_hz:     50000000   # 50 MHz
 
-  tiles: "1x1"
+  # ── Pines de entrada ui_in ──────────────────────────────────
+  inputs:
+    - "rx (UART RX, 9600 baud 8N1)"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
 
-  top_module:  "tt_um_Richard_Tarqui_contador_uart_simple"
+  # ── Pines de salida uo_out ──────────────────────────────────
+  outputs:
+    - "tx (UART TX, 9600 baud 8N1)"
+    - "activo (HIGH mientras el timer corre)"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
 
-  source_files:
-    - "tt_um_Richard_Tarqui_contador_uart_simple.v"
-    - "uart_rx.v"
-    - "uart_tx.v"
-    - "cmd_decoder.v"
-    - "timer_simple.v"
+  # ── IO bidireccional uio ─────────────────────────────────────
+  bidirectional:
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
+    - "none"
 
-# =========================
-# PINOUT
-# =========================
-pinout:
-  # Inputs
-  ui[0]: "UART_RX"
-  ui[1]: ""
-  ui[2]: ""
-  ui[3]: ""
-  ui[4]: ""
-  ui[5]: ""
-  ui[6]: ""
-  ui[7]: ""
+  # ── Opciones ─────────────────────────────────────────────────
+  uses_clock:        true
+  uses_reset:        true   # rst_n activo en LOW
+  reset_active_low:  true
 
-  # Outputs
-  uo[0]: "UART_TX"
-  uo[1]: "TIMER_ACTIVE"
-  uo[2]: ""
-  uo[3]: ""
-  uo[4]: ""
-  uo[5]: ""
-  uo[6]: ""
-  uo[7]: ""
+  # ── Documentación ────────────────────────────────────────────
+  how_it_works: |
+    This project implements a simple UART-controlled countdown timer.
+    It receives commands via UART (9600 baud, 8N1) on pin ui_in[0] (RX).
+    The incoming byte is decoded by a command interpreter (cmd_decoder)
+    that extracts whether to start the timer and the duration (up to 24 bits).
+    Once started, timer_simple counts down using the system clock.
+    While running, the activo signal is HIGH. Status is continuously
+    transmitted back via UART TX on uo_out[0]: 0x01 while active,
+    0x00 when finished.
 
-  # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
-  uio[4]: ""
-  uio[5]: ""
-  uio[6]: ""
-  uio[7]: ""
+  how_to_test: |
+    1. Connect a USB-to-UART adapter (3.3V) to the board:
+       TX of adapter -> ui_in[0], RX of adapter -> uo_out[0].
+    2. Open a serial terminal at 9600 baud, 8N1, no parity.
+    3. Send a command byte encoding start=1 and a countdown duration.
+    4. Observe uo_out[1] (activo) go HIGH, then LOW when done.
+    5. Read the UART RX stream: 0x01 while running, 0x00 when finished.
+    6. Send reset command byte or assert rst_n LOW to reset the timer.
 
-# Do not change!
-yaml_version: 6
+  external_hardware: |
+    - USB-to-UART adapter, 3.3V logic (e.g. FTDI FT232RL or CP2102)
+    - Optional: LED on uo_out[1] to monitor activo signal visually
