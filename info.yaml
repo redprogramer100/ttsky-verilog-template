@@ -1,7 +1,7 @@
 # Tiny Tapeout project information
 project:
   title:        "Contador UART Simple"
-  author:       "Richard Tarqui"
+  author:       "Richard Alfredo Tarqui Mamani and Gustavo Chavez"
   discord:      ""
   description:  "Timer countdown controlado por UART. Recibe comandos serie a 115200 baud y reporta estado activo/inactivo por TX."
   language:     "Verilog"
