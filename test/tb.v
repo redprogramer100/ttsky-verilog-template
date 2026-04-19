@@ -2,9 +2,9 @@
 
 module tb ();
 
-    // Entradas / salidas del DUT
-    reg  clk;
-    reg  rst_n;
+    reg        clk;
+    reg        rst_n;
+    reg        ena;
     reg  [7:0] ui_in;
     reg  [7:0] uio_in;
     wire [7:0] uo_out;
@@ -18,6 +18,7 @@ module tb ();
         .uio_in  (uio_in),
         .uio_out (uio_out),
         .uio_oe  (uio_oe),
+        .ena     (ena),
         .clk     (clk),
         .rst_n   (rst_n)
     );
@@ -30,6 +31,7 @@ module tb ();
     initial begin
         $dumpfile("tb.fst");
         $dumpvars(0, tb);
+        #1;
     end
 
 endmodule
