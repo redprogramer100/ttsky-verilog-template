@@ -8,6 +8,8 @@ module cmd_decoder (
     output reg [23:0] tiempo_o
 );
     reg [1:0] state;
+    reg       do_start;   // flag interno para emitir start un ciclo despues
+
     localparam IDLE = 2'd0;
     localparam T1   = 2'd1;
     localparam T2   = 2'd2;
@@ -18,10 +20,19 @@ module cmd_decoder (
             state    <= IDLE;
             start_o  <= 0;
             reset_o  <= 0;
+            do_start <= 0;
             tiempo_o <= 0;
         end else begin
-            start_o <= 0;
-            reset_o <= 0;
+            start_o  <= 0;
+            reset_o  <= 0;
+
+            // Si el ciclo anterior pedimos start, lo emitimos ahora
+            // (tiempo_o ya esta estable desde el ciclo anterior)
+            if (do_start) begin
+                do_start <= 0;
+                start_o  <= 1;
+            end
+
             if (rx_valid) begin
                 case (state)
                     IDLE: begin
@@ -42,8 +53,8 @@ module cmd_decoder (
                     end
                     T3: begin
                         tiempo_o[7:0] <= rx_data;
-                        start_o <= 1;
-                        state   <= IDLE;
+                        do_start <= 1;   // activar start en el SIGUIENTE ciclo
+                        state    <= IDLE;
                     end
                     default: state <= IDLE;
                 endcase
