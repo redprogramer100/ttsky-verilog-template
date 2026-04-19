@@ -1,6 +1,6 @@
 module uart_rx #(
-    parameter CLK_FREQ = 50_000_000,
-    parameter BAUDRATE = 115200
+    parameter CLK_FREQ = 100_000,
+    parameter BAUDRATE = 10_000
 )(
     input  wire clk_i,
     input  wire reset_i,
@@ -8,7 +8,7 @@ module uart_rx #(
     output reg [7:0] data_o,
     output reg       valid_o
 );
-    localparam CLKS_PER_BIT = CLK_FREQ / BAUDRATE;
+    localparam CLKS_PER_BIT = CLK_FREQ / BAUDRATE;  // = 10
 
     reg [31:0] clk_cnt;
     reg [3:0]  bit_idx;
@@ -17,11 +17,11 @@ module uart_rx #(
 
     always @(posedge clk_i or posedge reset_i) begin
         if (reset_i) begin
-            clk_cnt <= 0;
-            bit_idx <= 0;
-            busy    <= 0;
-            valid_o <= 0;
-            data_o  <= 0;
+            clk_cnt  <= 0;
+            bit_idx  <= 0;
+            busy     <= 0;
+            valid_o  <= 0;
+            data_o   <= 0;
             rx_shift <= 0;
         end else begin
             valid_o <= 0;
