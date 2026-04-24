@@ -1,9 +1,9 @@
 # Tiny Tapeout project information
 project:
-  title:        "Contador UART Simple"
-  author:       "Richard Alfredo Tarqui Mamani and Gustavo Chavez"
+  title:        "Contador UART Simple" # Mantenemos tu título original
+  author:       "Richard Alfredo Tarqui Mamani and Gustavo Ismael Chavez Mamani"
   discord:      ""
-  description:  "Timer countdown controlado por UART. Recibe comandos serie a 115200 baud y reporta estado activo/inactivo por TX."
+  description:  "Medidor de frecuencia y contador de pulsos con timer controlado por UART a 115200 baud."
   language:     "Verilog"
   clock_hz:     50000000
   tiles:        "1x1"
@@ -12,14 +12,17 @@ project:
     - "tt_um_Richard_Tarqui_contador_uart_simple.v"
     - "uart_rx.v"
     - "uart_tx.v"
-    - "cmd_decoder.v"
-    - "timer_simple.v"
+    - "uart_parser.v"
+    - "uart_trama_sender.v"
+    - "temporizador_programable.v"
+    - "contador_pulsos.v"
+    - "frecuencimetro.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 pinout:
   # Inputs
   ui[0]: "RX - UART input 115200 baud 8N1"
-  ui[1]: ""
+  ui[1]: "Signal input to measure"
   ui[2]: ""
   ui[3]: ""
   ui[4]: ""
@@ -28,8 +31,8 @@ pinout:
   ui[7]: ""
   # Outputs
   uo[0]: "TX - UART output 115200 baud 8N1"
-  uo[1]: "activo - HIGH while timer is running"
-  uo[2]: ""
+  uo[1]: "trama_ok - HIGH pulse when TX frame ends"
+  uo[2]: "activo - HIGH while timer is running"
   uo[3]: ""
   uo[4]: ""
   uo[5]: ""

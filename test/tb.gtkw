@@ -1,39 +1,50 @@
 [*]
-[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
-[*] Mon Nov 20 16:00:28 2023
+[*] GTKWave Analyzer v3.3.124 (w)1999-2025 BSI
+[*] Fri Apr 24 21:36:58 2026
 [*]
-[dumpfile] "/home/uri/p/tt-new-template-proto/test/tb.fst"
-[dumpfile_mtime] "Mon Nov 20 15:58:34 2023"
-[dumpfile_size] 1110
-[savefile] "/home/uri/p/tt-new-template-proto/test/tb.gtkw"
+[dumpfile] "/home/gus/Documentos/FPGA/ProyectoFin/ttsky-verilog-template/test/tb.vcd"
+[dumpfile_mtime] "Fri Apr 24 21:26:22 2026"
+[dumpfile_size] 3911533
+[savefile] "/home/gus/Documentos/FPGA/ProyectoFin/ttsky-verilog-template/test/tb.gtkw"
 [timestart] 0
-[size] 1376 600
-[pos] -1 -1
-*-24.534533 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[size] 1670 841
+[pos] -46 -46
+*-27.647797 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
-[sst_width] 297
-[signals_width] 230
+[treeopen] tb.dut.
+[sst_width] 209
+[signals_width] 142
 [sst_expanded] 1
-[sst_vpaned_height] 158
+[sst_vpaned_height] 274
 @28
-tb.user_project.ena
+tb.dut.clk
+tb.dut.rst
+@800022
+tb.dut.ui_in[7:0]
+@28
+(6)tb.dut.ui_in[7:0]
+(7)tb.dut.ui_in[7:0]
+@1001200
+-group_end
+@800022
+tb.dut.uo_out[7:0]
+@28
+(5)tb.dut.uo_out[7:0]
+(6)tb.dut.uo_out[7:0]
+(7)tb.dut.uo_out[7:0]
+@1001200
+-group_end
+@22
+tb.dut.u_parser.state[3:0]
+@28
+tb.dut.u_parser.horaLista_o
+tb.dut.u_parser.init_pulse_o
+tb.dut.u_parser.Enviando_o
+@24
+tb.dut.u_timer.contador[31:0]
+@28
+tb.dut.u_timer.tick_1hz
 @29
-tb.user_project.clk
-@28
-tb.user_project.rst_n
-@200
--Inputs
-@22
-tb.user_project.ui_in[7:0]
-@200
--Bidirectional Pins
-@22
-tb.user_project.uio_in[7:0]
-tb.user_project.uio_oe[7:0]
-tb.user_project.uio_out[7:0]
-@200
--Output Pins
-@22
-tb.user_project.uo_out[7:0]
+tb.dut.u_timer.hora_cargada
 [pattern_trace] 1
 [pattern_trace] 0

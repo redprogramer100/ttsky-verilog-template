@@ -13,6 +13,7 @@ module tb ();
     wire [7:0] uio_oe;
 
     // Instancia del proyecto (DUT)
+    // Conectado exactamente a tu top tt_um actualizado
     tt_um_Richard_Tarqui_contador_uart_simple dut (
         .ui_in   (ui_in),
         .uo_out  (uo_out),
@@ -24,11 +25,9 @@ module tb ();
         .rst_n   (rst_n)
     );
 
-    // Parámetros de tiempo (Basados en 100KHz y 10Kbps según el código actual)
-    // Nota: Si cambias la frecuencia a 50MHz en el código real, 
-    // estos tiempos deberán ajustarse proporcionalmente.
-    localparam PERIODO_CLK = 10000;          // 100ns * 100 = 10us (100 KHz)
-    localparam BIT_TIME    = 100000;         // 100us (10 Kbps)
+    // Parámetros de tiempo reales (50 MHz y 115200 Baudios)
+    localparam PERIODO_CLK = 20;             // 20ns = 50 MHz
+    localparam BIT_TIME    = 8680;           // 1/115200 ≈ 8.68us = 8680ns
 
     // Generador de Reloj
     initial clk = 0;
@@ -46,7 +45,7 @@ module tb ();
             end
             ui_in[0] = 1; // Bit de Parada (Stop Bit)
             #(BIT_TIME);
-            #(BIT_TIME); // Pausa entre comandos
+            #(BIT_TIME); // Pausa entre bytes
         end
     endtask
 
@@ -66,33 +65,36 @@ module tb ();
         rst_n = 1;
         #(PERIODO_CLK * 10);
 
-        // 3. ENVIAR COMANDO 'I' (Iniciar con tiempo por defecto)
-        // ASCII 'I' = 0x49
-        $display("Enviando comando START ('I')...");
-        enviar_byte(8'h49);
+        // 3. CARGAR TIEMPO 'H' (Formato ASCII HH:MM:SS)
+        // Ejemplo: H00:00:02 (2 segundos)
+        $display("Configurando tiempo: H00:00:02...");
+        enviar_byte("H");
+        enviar_byte("0"); enviar_byte("0"); enviar_byte(":");
+        enviar_byte("0"); enviar_byte("0"); enviar_byte(":");
+        enviar_byte("0"); enviar_byte("2");
+
+        // 4. HABILITAR TELEMETRÍA 'E' Y EMPEZAR 'I'
+        $display("Enviando ENABLE ('E') y START ('I')...");
+        enviar_byte("E"); 
+        enviar_byte("I");
         
-        #(BIT_TIME * 20); // Esperar a que el sistema procese y ver uo_out[1] (activo)
+        // Esperar a que el timer se active (uo_out[2])
+        wait(uo_out[2] == 1);
+        $display("Timer activo detectado.");
 
-        // 4. ENVIAR COMANDO 'R' (Reset/Parar)
-        // ASCII 'R' = 0x52
+        // 5. ESPERAR FINALIZACIÓN
+        // El timer dura 2 segundos, esperamos un poco más para ver la trama TX
+        #(BIT_TIME * 300); 
+
+        // 6. ENVIAR RESET 'R' PARA LIMPIAR
         $display("Enviando comando RESET ('R')...");
-        enviar_byte(8'h52);
+        enviar_byte("R");
+        enviar_byte("S"); // Bajar el pulso de reset según tu parser
 
-        #(BIT_TIME * 10);
+        #(BIT_TIME * 20);
 
-        // 5. ENVIAR COMANDO 'T' + TIEMPO (Cargar 5 segundos)
-        // ASCII 'T' = 0x54, seguido de 0x00, 0x00, 0x05
-        $display("Enviando comando SET TIME ('T') para 5 segundos...");
-        enviar_byte(8'h54); // Comando T
-        enviar_byte(8'h00); // Byte alto
-        enviar_byte(8'h00); // Byte medio
-        enviar_byte(8'h05); // Byte bajo (5s)
-
-        // 6. Observar el funcionamiento
-        $display("Simulacion en curso. Observa las señales en el Waveform.");
-        #(BIT_TIME * 100); 
-
-        $display("Simulacion finalizada.");
+        $display("Simulacion finalizada. Revisa el archivo tb.vcd.");
+        $finish;
     end
 
 endmodule
