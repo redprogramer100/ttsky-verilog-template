@@ -1,72 +1,134 @@
 module uart_rx #(
-    parameter CLK_FREQ = 100_000,
-    parameter BAUDRATE = 10_000
+    parameter CLK_FREQ = 50_000_000,
+    parameter BAUDRATE = 115200
 )(
-    input  wire       clk_i,
-    input  wire       reset_i,
-    input  wire       rx_i,
+    input  wire clk_i,
+    input  wire reset_i,
+    input  wire rx_i,
+
     output reg  [7:0] data_o,
-    output reg        valid_o
+    output reg        valid_o,
+    input  wire       ready_i
 );
-    localparam CLKS_PER_BIT = CLK_FREQ / BAUDRATE;
-    localparam HALF_BIT     = CLKS_PER_BIT / 2;
 
-    localparam S_IDLE  = 2'd0;
-    localparam S_START = 2'd1;
-    localparam S_DATA  = 2'd2;
-    localparam S_STOP  = 2'd3;
+    // -------------------------------------------------
+    // Baud generator (x16 oversampling)
+    // -------------------------------------------------
+    localparam integer CLKS_PER_TICK = CLK_FREQ / (BAUDRATE * 16);
 
-    reg [1:0]  state;
-    reg [15:0] cnt;
-    reg [2:0]  bit_idx;
-    reg [7:0]  shift;
+    reg [15:0] clk_cnt;
+    reg        tick;
 
     always @(posedge clk_i or posedge reset_i) begin
         if (reset_i) begin
-            state   <= S_IDLE;
-            cnt     <= 0;
-            bit_idx <= 0;
-            shift   <= 0;
-            data_o  <= 0;
-            valid_o <= 0;
+            clk_cnt <= 0;
+            tick    <= 0;
         end else begin
-            valid_o <= 0;
+            if (clk_cnt == CLKS_PER_TICK - 1) begin
+                clk_cnt <= 0;
+                tick    <= 1;
+            end else begin
+                clk_cnt <= clk_cnt + 1;
+                tick    <= 0;
+            end
+        end
+    end
+
+    // -------------------------------------------------
+    // Sincronización entrada
+    // -------------------------------------------------
+    reg [1:0] sync;
+
+    always @(posedge clk_i) begin
+        sync <= {sync[0], rx_i};
+    end
+
+    wire rx = sync[1];
+
+    // -------------------------------------------------
+    // FSM
+    // -------------------------------------------------
+    localparam IDLE  = 3'd0;
+    localparam START = 3'd1;
+    localparam DATA  = 3'd2;
+    localparam STOP  = 3'd3;
+    localparam WAIT  = 3'd4;
+
+    reg [2:0] state;
+    reg [3:0] tick_cnt;
+    reg [2:0] bit_cnt;
+    reg [7:0] shift;
+
+    always @(posedge clk_i or posedge reset_i) begin
+        if (reset_i) begin
+            state    <= IDLE;
+            tick_cnt <= 0;
+            bit_cnt  <= 0;
+            shift    <= 0;
+            data_o   <= 0;
+            valid_o  <= 0;
+
+        end else begin
             case (state)
-                S_IDLE: begin
-                    if (rx_i == 0) begin   // detecto start bit
-                        cnt   <= 1;
-                        state <= S_START;
+
+                IDLE: begin
+                    valid_o <= 0;
+                    if (rx == 0) begin
+                        state    <= START;
+                        tick_cnt <= 0;
                     end
                 end
-                S_START: begin
-                    if (cnt == HALF_BIT) begin  // centro del start bit
-                        cnt     <= 1;
-                        bit_idx <= 0;
-                        state   <= S_DATA;
-                    end else
-                        cnt <= cnt + 1;
-                end
-                S_DATA: begin
-                    if (cnt == CLKS_PER_BIT) begin
-                        shift[bit_idx] <= rx_i;
-                        cnt     <= 1;
-                        if (bit_idx == 7)
-                            state <= S_STOP;
+
+                START: if (tick) begin
+                    if (tick_cnt == 7) begin
+                        if (rx == 0)
+                            tick_cnt <= tick_cnt + 1;
                         else
-                            bit_idx <= bit_idx + 1;
-                    end else
-                        cnt <= cnt + 1;
+                            state <= IDLE;
+                    end else if (tick_cnt == 15) begin
+                        tick_cnt <= 0;
+                        bit_cnt  <= 0;
+                        state    <= DATA;
+                    end else begin
+                        tick_cnt <= tick_cnt + 1;
+                    end
                 end
-                S_STOP: begin
-                    if (cnt == CLKS_PER_BIT) begin
+
+                DATA: if (tick) begin
+                    if (tick_cnt == 7) begin
+                        shift[bit_cnt] <= rx;
+                        tick_cnt <= tick_cnt + 1;
+                    end else if (tick_cnt == 15) begin
+                        tick_cnt <= 0;
+                        if (bit_cnt == 7)
+                            state <= STOP;
+                        else
+                            bit_cnt <= bit_cnt + 1;
+                    end else begin
+                        tick_cnt <= tick_cnt + 1;
+                    end
+                end
+
+                STOP: if (tick) begin
+                    if (tick_cnt == 15) begin
                         data_o  <= shift;
                         valid_o <= 1;
-                        state   <= S_IDLE;
-                        cnt     <= 0;
-                    end else
-                        cnt <= cnt + 1;
+                        state   <= WAIT;
+                        tick_cnt <= 0;
+                    end else begin
+                        tick_cnt <= tick_cnt + 1;
+                    end
                 end
+
+                WAIT: begin
+                    if (ready_i) begin
+                        valid_o <= 0;
+                        state   <= IDLE;
+                    end
+                end
+
             endcase
         end
     end
+
 endmodule
