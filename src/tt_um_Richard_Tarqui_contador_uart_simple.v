@@ -1,83 +1,153 @@
-module tt_um_Richard_Tarqui_contador_uart_simple (
-    input  wire [7:0] ui_in,
-    output wire [7:0] uo_out,
-    input  wire [7:0] uio_in,
-    output wire [7:0] uio_out,
-    output wire [7:0] uio_oe,
-    input  wire       ena,
-    input  wire       clk,
-    input  wire       rst_n
+`default_nettype none
+
+/*
+ * CHIP1contador.v
+ * Main controller for the measurement system.
+ * It connects UART communication, the command parser, 
+ * the timer, and measurement modules (counter and frequency meter).
+ */
+
+module CHIP1contador (
+    input  wire clk_i,       // Main system clock
+    input  wire reset_i,     // Global reset
+    input  wire pulso1,      // Signal input to be measured
+    input  wire RX,          // UART RX line
+    output wire TX,          // UART TX line
+    output wire trama_ok     // Frame transmission status pulse
 );
-    // Suprimir warnings de pines no usados
-    wire _unused = &{ena, uio_in, ui_in[7:1]};
 
-    wire rx  = ui_in[0];
-    wire rst = ~rst_n;
-
-    wire tx;
-    wire activo;
+    // =====================================================
+    // UART RX MODULE
+    // Receiving commands at 115200 baud
+    // =====================================================
     wire [7:0] rx_data;
-    wire rx_valid;
+    wire       rx_valid;
 
-    uart_rx #(.CLK_FREQ(50_000_000), .BAUDRATE(115_200)) u_rx (
-        .clk_i(clk),
-        .reset_i(rst),
-        .rx_i(rx),
-        .data_o(rx_data),
-        .valid_o(rx_valid)
+    uart_rx #(
+        .CLK_FREQ(50_000_000),
+        .BAUDRATE(115200)
+    ) u_rx (
+        .clk_i  (clk_i),
+        .reset_i(reset_i),
+        .rx_i   (RX),
+        .data_o (rx_data),
+        .valid_o(rx_valid),
+        .ready_i(1'b1)
     );
 
-    wire start, reset_cmd;
-    wire [23:0] tiempo;
+    // =====================================================
+    // UART COMMAND PARSER
+    // Decodes commands like 'H' (Time set), 'I' (Start), 'R' (Reset)
+    // =====================================================
+    wire       reset_pulse;
+    wire       init_pulse;
+    wire       error_instruccion;
+    wire       horaLista;
+    wire       Enviando;
+    wire [7:0] hora;
+    wire [7:0] min;
+    wire [7:0] seg;
 
-    cmd_decoder u_cmd (
-        .clk_i(clk),
-        .reset_i(rst),
-        .rx_data(rx_data),
-        .rx_valid(rx_valid),
-        .start_o(start),
-        .reset_o(reset_cmd),
-        .tiempo_o(tiempo)
+    uart_parser #(
+        .CLK_FREQ(50_000_000)
+    ) u_parser (
+        .clk_i         (clk_i),
+        .reset_i       (reset_i),
+        .rx_data       (rx_data),
+        .rx_valid      (rx_valid),
+        .reset_pulse_o (reset_pulse),
+        .init_pulse_o  (init_pulse),
+        .error_pulse_o (error_instruccion),
+        .horaLista_o   (horaLista),
+        .hora_o        (hora),
+        .min_o         (min),
+        .seg_o         (seg),
+        .Enviando_o    (Enviando)
     );
 
-    timer_simple u_timer (
-        .clk_i(clk),
-        .reset_i(rst | reset_cmd),
-        .start_i(start),
-        .tiempo_i(tiempo),
-        .activo_o(activo)
+    // =====================================================
+    // PROGRAMMABLE TIMER
+    // Manages the measurement window duration
+    // =====================================================
+    wire enable_sys;
+    wire salida_temp;
+
+    temporizador_programable #(
+        .CLK_FREQ(50_000_000)
+    ) u_timer (
+        .clk_i      (clk_i),
+        .reset_i    (reset_i | reset_pulse),
+        .start_i    (init_pulse),
+        .horaLista_i(horaLista),
+        .horas_i    (hora),
+        .minutos_i  (min),
+        .segundos_i (seg),
+        .salida_o   (salida_temp),
+        .activo_o   (enable_sys)
     );
 
-    wire tx_ready;
-    reg  tx_valid;
-    reg  [7:0] tx_data;
+    // =====================================================
+    // PULSE COUNTER
+    // Counts falling edges during the active window
+    // =====================================================
+    wire [31:0] contador1;
+    wire        sin_pulso1;
 
-    uart_tx #(.CLK_FREQ(50_000_000), .BAUDRATE(115_200)) u_tx (
-        .clk_i(clk),
-        .reset_i(rst),
-        .data_i(tx_data),
-        .valid_i(tx_valid),
-        .ready_o(tx_ready),
-        .tx_o(tx)
+    contador_pulsos u_contador1 (
+        .clk_i      (clk_i),
+        .reset_i    (reset_i | reset_pulse),
+        .enable_i   (enable_sys),
+        .P1_i       (pulso1),
+        .contador_o (contador1),
+        .sin_pulso_o(sin_pulso1)
     );
 
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin
-            tx_valid <= 0;
-            tx_data  <= 0;
-        end else begin
-            tx_valid <= 0;
-            if (tx_ready) begin
-                tx_data  <= {7'b0, activo};
-                tx_valid <= 1;
-            end
-        end
-    end
+    // =====================================================
+    // FREQUENCY METER
+    // Calculates Hz using reciprocal counting technique
+    // =====================================================
+    wire [31:0] frecuencia1;
+    wire        dato_listo1;
 
-    assign uo_out[0]   = tx;
-    assign uo_out[1]   = activo;
-    assign uo_out[7:2] = 6'b0;
-    assign uio_out     = 8'b0;
-    assign uio_oe      = 8'b0;
+    frecuencimetro #(
+        .CLK_FREQ(50_000_000),
+        .GATE_SEC(1)
+    ) u_freq1 (
+        .clk_i       (clk_i),
+        .reset_i     (reset_i | reset_pulse),
+        .enable_i    (enable_sys),
+        .pulso_i     (pulso1),
+        .frecuencia_o(frecuencia1),
+        .dato_listo_o(dato_listo1)
+    );
+
+    // =====================================================
+    // STATUS BYTE
+    // estado[7:0] = { Reserved[3:0], Active, TimeOut, Ready, Error }
+    // =====================================================
+    wire [7:0] estado;
+    assign estado = {4'b0000, enable_sys, salida_temp,
+                     horaLista, error_instruccion};
+
+    // =====================================================
+    // UART DATA FRAME SENDER
+    // Transmits results: $counter/frequency/status/#/\n\r
+    // =====================================================
+    uart_trama_sender #(
+        .CLK_FREQ(50_000_000),
+        .BAUDRATE(115200)
+    ) u_sender (
+        .clk_i         (clk_i),
+        .reset_i       (reset_i | reset_pulse),
+        .contador1_i   (contador1),
+        .frecuencia1_i (frecuencia1),
+        .estado_i      (estado),
+        .fin_i         (8'h23),         // '#' default character
+        .Enviando_i    (Enviando),
+        .listo_cnt1_i  (dato_listo1),   // from frequency meter
+        .listo_freq1_i (dato_listo1),
+        .tx_o          (TX),
+        .trama_ok_o    (trama_ok)
+    );
 
 endmodule
