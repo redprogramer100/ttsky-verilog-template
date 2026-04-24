@@ -19,7 +19,7 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     wire [7:0] rx_data;
     wire rx_valid;
 
-    uart_rx u_rx (
+    uart_rx #(.CLK_FREQ(50_000_000), .BAUDRATE(115_200)) u_rx (
         .clk_i(clk),
         .reset_i(rst),
         .rx_i(rx),
@@ -52,7 +52,7 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     reg  tx_valid;
     reg  [7:0] tx_data;
 
-    uart_tx u_tx (
+    uart_tx #(.CLK_FREQ(50_000_000), .BAUDRATE(115_200)) u_tx (
         .clk_i(clk),
         .reset_i(rst),
         .data_i(tx_data),
