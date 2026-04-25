@@ -26,7 +26,7 @@ module uart_parser #(
 
     // Generador de pulso de error
     localparam PULSE_MAX = 25000000; // 0.5s a 50MHz
-    reg [31:0] pulse_cnt;
+    reg [24:0] pulse_cnt;
     reg        pulse_active;
 
     // Estados de la FSM
