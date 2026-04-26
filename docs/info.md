@@ -1,39 +1,31 @@
-<!---
-This file is used to generate your project datasheet. Please fill in the information below and delete any unused
-sections.
-
-You can also include images in this folder and reference them in the markdown. Each image must be less than
-512 kb in size, and the combined size of all images must be less than 1 MB.
--->
+# Simple UART Frequency Meter & Timer
 
 ## How it works
+This project integrates three main functionalities into a single ASIC chip, optimized for low area usage:
 
-This project implements a simple UART-controlled countdown timer running at 115200 baud (8N1).
+1.  **Programmable Timer:** Allows setting a countdown timer in `HH:MM:SS` format via UART. It utilizes an area-efficient cascaded counter architecture to minimize logic gate count.
+2.  **High-Precision Frequency Meter:** Measures the frequency of an external signal applied to the `ui_in[1]` pin using the reciprocal counting technique.
+3.  **Pulse Counter:** Tracks the total number of falling edges detected during the measurement window.
 
-The design is composed of four submodules:
+The system is fully controlled via ASCII commands over a UART interface configured at **115200 baud**.
 
-- **uart_rx**: Receives serial data at 115200 baud and outputs a valid byte when a full frame is received.
-- **cmd_decoder**: Interprets incoming bytes as commands. Supported commands are:
-  - `'R'` (0x52) — Reset the timer immediately.
-  - `'I'` (0x49) — Start the timer with the current duration.
-  - `'T'` (0x54) followed by 3 bytes — Load a custom 24-bit countdown duration and start.
-- **timer_simple**: Counts down from the loaded value using 1-second ticks generated from the 50 MHz system clock. The `activo` signal stays HIGH while counting, and goes LOW when it reaches zero.
-- **uart_tx**: Continuously transmits the timer status back to the host: `0x01` while active, `0x00` when idle.
+## UART Commands
+* `Hhh:mm:ss`: Load the measurement time (e.g., `H00:01:30` for 1 minute and 30 seconds).
+* `I`: Start the measurement (Initializes counting).
+* `R`: Reset the system and stop any ongoing measurement.
+* `E`: Enable continuous telemetry transmission (Data reporting).
+* `Y`: Disable telemetry transmission.
 
 ## How to test
+1.  Connect a USB-to-Serial converter to pins `ui_in[0]` (RX) and `uo_out[0]` (TX).
+2.  Configure your serial terminal to **115200 baud**.
+3.  Send a time string, for example: `H00:00:10`.
+4.  Send the `I` command to start. You will see the `uo_out[2]` pin go HIGH.
+5.  If telemetry is enabled (`E`), you will receive data frames containing the pulse count and the measured frequency.
 
-1. Connect a USB-to-UART adapter (3.3V logic) to the Tiny Tapeout board:
-   - Adapter TX → `ui_in[0]` (RX of the design)
-   - Adapter RX → `uo_out[0]` (TX of the design)
-2. Open a serial terminal (e.g. PuTTY, minicom, screen) at **115200 baud, 8N1, no parity**.
-3. Send the byte `'I'` (0x49) to start the timer immediately. The `activo` signal on `uo_out[1]` will go HIGH.
-4. Send `'T'` (0x54) followed by 3 bytes to set a custom duration, for example:
-   - `0x54 0x00 0x00 0x05` = 5 seconds countdown.
-5. Send `'R'` (0x52) at any time to reset the timer. `activo` goes LOW immediately.
-6. Monitor `uo_out[1]` with an LED or oscilloscope to observe the timer state visually.
-7. Read the UART output stream: you will receive `0x01` bytes while the timer is running and `0x00` when it has finished.
-
-## External hardware
-
-- **USB-to-UART adapter** with 3.3V logic levels (e.g. FTDI FT232RL, CP2102, or CH340).
-- **Optional:** LED connected to `uo_out[1]` to visually monitor the `activo` signal (most Tiny Tapeout demoboards already include this).
+## Inputs/Outputs
+* **ui_in[0]**: UART RX Input.
+* **ui_in[1]**: External signal input for frequency measurement.
+* **uo_out[0]**: UART TX Output.
+* **uo_out[1]**: Packet OK Pulse (End of transmission indicator).
+* **uo_out[2]**: System ACTIVE indicator (Measurement in progress).

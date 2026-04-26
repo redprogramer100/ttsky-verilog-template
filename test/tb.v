@@ -2,7 +2,7 @@
 
 module tb ();
 
-    // Señales del sistema
+    // 1. Señales de estímulo
     reg        clk;
     reg        rst_n;
     reg        ena;
@@ -12,7 +12,11 @@ module tb ();
     wire [7:0] uio_out;
     wire [7:0] uio_oe;
 
-    // Instancia del proyecto (DUT)
+    // 2. Parámetros de tiempo (50MHz y 115200 Baudios)
+    localparam CLK_PERIOD = 20;              // 20ns = 50MHz
+    localparam BIT_TIME   = 8680;            // 1s / 115200 = 8.68us = 8680ns
+
+    // 3. Instancia del Proyecto (DUT)
     tt_um_Richard_Tarqui_contador_uart_simple dut (
         .ui_in   (ui_in),
         .uo_out  (uo_out),
@@ -24,75 +28,71 @@ module tb ();
         .rst_n   (rst_n)
     );
 
-    // Parámetros de tiempo (Basados en 100KHz y 10Kbps según el código actual)
-    // Nota: Si cambias la frecuencia a 50MHz en el código real, 
-    // estos tiempos deberán ajustarse proporcionalmente.
-    localparam PERIODO_CLK = 10000;          // 100ns * 100 = 10us (100 KHz)
-    localparam BIT_TIME    = 100000;         // 100us (10 Kbps)
-
-    // Generador de Reloj
+    // 4. Generador de Reloj
     initial clk = 0;
-    always #(PERIODO_CLK/2) clk = ~clk;
+    always #(CLK_PERIOD/2) clk = ~clk;
 
-    // Tarea para enviar un byte por UART (Protocolo 8N1)
+    // 5. Tarea para enviar un byte por UART (8N1)
     task enviar_byte(input [7:0] data);
         integer i;
         begin
-            ui_in[0] = 0; // Bit de Inicio (Start Bit)
+            ui_in[0] = 0; // Start Bit
             #(BIT_TIME);
             for (i = 0; i < 8; i = i + 1) begin
-                ui_in[0] = data[i]; // Bits de datos (LSB primero)
+                ui_in[0] = data[i]; // LSB First
                 #(BIT_TIME);
             end
-            ui_in[0] = 1; // Bit de Parada (Stop Bit)
+            ui_in[0] = 1; // Stop Bit
             #(BIT_TIME);
-            #(BIT_TIME); // Pausa entre comandos
+            #(BIT_TIME); // Pausa entre bytes
         end
     endtask
 
-    // Secuencia de Simulación
+    // 6. Flujo de la Simulación
     initial begin
-        // 1. Inicialización de señales
+        // Preparar archivos para GTKWave
         $dumpfile("tb.vcd");
         $dumpvars(0, tb);
         
+        // Estado inicial
         rst_n = 0;
         ena = 1;
-        ui_in = 8'hFF; // Línea UART en IDLE (alto)
+        ui_in = 8'hFF; // RX en IDLE (1)
         uio_in = 8'h00;
 
-        // 2. Liberar Reset
-        #(PERIODO_CLK * 10);
+        // Reset
+        #(CLK_PERIOD * 10);
         rst_n = 1;
-        #(PERIODO_CLK * 10);
+        #(CLK_PERIOD * 10);
 
-        // 3. ENVIAR COMANDO 'I' (Iniciar con tiempo por defecto)
-        // ASCII 'I' = 0x49
-        $display("Enviando comando START ('I')...");
-        enviar_byte(8'h49);
-        
-        #(BIT_TIME * 20); // Esperar a que el sistema procese y ver uo_out[1] (activo)
+        $display("--- Iniciando carga de tiempo H00:00:02 ---");
+        enviar_byte(8'h48); // 'H'
+        enviar_byte(8'h30); // '0'
+        enviar_byte(8'h30); // '0'
+        enviar_byte(8'h3A); // ':'
+        enviar_byte(8'h30); // '0'
+        enviar_byte(8'h30); // '0'
+        enviar_byte(8'h3A); // ':'
+        enviar_byte(8'h30); // '0'
+        enviar_byte(8'h32); // '2'
 
-        // 4. ENVIAR COMANDO 'R' (Reset/Parar)
-        // ASCII 'R' = 0x52
-        $display("Enviando comando RESET ('R')...");
-        enviar_byte(8'h52);
+        #(BIT_TIME * 2);
+
+        $display("--- Enviando comando de Inicio 'I' ---");
+        enviar_byte(8'h49); // 'I'
+
+        // Esperar a ver la respuesta en uo_out[2] (activo_o)
+        wait(uo_out[2] == 1);
+        $display(">>> Sistema ACTIVO detectado");
+
+        // IMPORTANTE: Aquí la simulación tardaría mucho si CLK_FREQ es 50M.
+        // Se asume que para el test se bajó el contador en Verilog.
+        wait(uo_out[2] == 0);
+        $display(">>> Sistema INACTIVO detectado (Fin del tiempo)");
 
         #(BIT_TIME * 10);
-
-        // 5. ENVIAR COMANDO 'T' + TIEMPO (Cargar 5 segundos)
-        // ASCII 'T' = 0x54, seguido de 0x00, 0x00, 0x05
-        $display("Enviando comando SET TIME ('T') para 5 segundos...");
-        enviar_byte(8'h54); // Comando T
-        enviar_byte(8'h00); // Byte alto
-        enviar_byte(8'h00); // Byte medio
-        enviar_byte(8'h05); // Byte bajo (5s)
-
-        // 6. Observar el funcionamiento
-        $display("Simulacion en curso. Observa las señales en el Waveform.");
-        #(BIT_TIME * 100); 
-
-        $display("Simulacion finalizada.");
+        $display("Simulación finalizada exitosamente.");
+        $finish;
     end
 
 endmodule
