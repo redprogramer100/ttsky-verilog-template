@@ -8,14 +8,15 @@
  * It uses a 2-stage pipeline to handle mathematical operations without 
  * affecting the timing of the ASIC.
  */
-module frecuencimetro #(
-    parameter CLK_FREQ = 50_000_000
+ module frecuencimetro #(
+    parameter CLK_FREQ = 50_000_000,
+    parameter GATE_SEC = 1           // <--- Agregamos esto
 )(
     input  wire        clk_i,
     input  wire        reset_i,
     input  wire        enable_i,
     input  wire        pulso_i,
-    output reg  [31:0] frecuencia_o, // El número de pulsos en 1 seg = Hz
+    output reg  [31:0] frecuencia_o, 
     output reg         dato_listo_o
 );
 
@@ -23,9 +24,11 @@ module frecuencimetro #(
     reg [31:0] pulse_cnt;
     reg [1:0]  sync;
 
-    // Sincronizador para evitar metaestabilidad
     always @(posedge clk_i) sync <= {sync[0], pulso_i};
     wire flanco_subida = sync[0] & ~sync[1];
+
+    // Ahora el tiempo de la ventana depende del parámetro
+    localparam [31:0] GATE_CYCLES = CLK_FREQ * GATE_SEC;
 
     always @(posedge clk_i or posedge reset_i) begin
         if (reset_i || !enable_i) begin
@@ -34,12 +37,10 @@ module frecuencimetro #(
             frecuencia_o <= 0;
             dato_listo_o <= 0;
         end else begin
-            // Contar flancos del sensor (Viento/Motor)
             if (flanco_subida) pulse_cnt <= pulse_cnt + 1;
 
-            // Ventana de 1 segundo
-            if (clk_cnt >= (CLK_FREQ - 1)) begin
-                frecuencia_o <= pulse_cnt; // Hz = pulsos/1seg
+            if (clk_cnt >= (GATE_CYCLES - 1)) begin
+                frecuencia_o <= pulse_cnt; 
                 dato_listo_o <= 1;
                 clk_cnt      <= 0;
                 pulse_cnt    <= 0;

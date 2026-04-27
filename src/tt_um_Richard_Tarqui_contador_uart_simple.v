@@ -53,7 +53,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
 
     // ------------------------------------------------------------------------
     // COMMAND PARSER INSTANTIATION
-    // Decodes commands like 'H' (Time), 'I' (Start), 'R' (Reset), 'E' (Enable)
     // ------------------------------------------------------------------------
     wire       reset_pulse;
     wire       init_pulse;
@@ -83,7 +82,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
 
     // ------------------------------------------------------------------------
     // PROGRAMMABLE TIMER INSTANTIATION
-    // Creates the measurement window based on programmed HH:MM:SS
     // ------------------------------------------------------------------------
     wire enable_sys;
     wire salida_temp;
@@ -104,7 +102,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
 
     // ------------------------------------------------------------------------
     // PULSE COUNTER INSTANTIATION
-    // Counts falling edges of 'signal_input' during 'enable_sys' window
     // ------------------------------------------------------------------------
     wire [31:0] contador1;
     wire        sin_pulso1;
@@ -119,8 +116,7 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     );
 
     // ------------------------------------------------------------------------
-    // FREQUENCY METER INSTANTIATION
-    // High precision frequency measurement (1s Gate)
+    // FREQUENCY METER INSTANTIATION (Optimizado sin división)
     // ------------------------------------------------------------------------
     wire [31:0] frecuencia1;
     wire        dato_listo1;
@@ -167,7 +163,7 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     assign uo_out[2] = enable_sys;      // Active measurement flag
     assign uo_out[7:3] = 5'b00000;      // Reserved
 
-    // Tie bidirectional IOs to ground (Inputs by default)
+    // Tie bidirectional IOs to ground
     assign uio_out = 8'b00000000;
     assign uio_oe  = 8'b00000000;
 
