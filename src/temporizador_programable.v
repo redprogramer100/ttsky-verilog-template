@@ -6,6 +6,7 @@
  * masivamente el área lógica en el tile de Tiny Tapeout.
  */
 
+
 module temporizador_programable #(
     parameter CLK_FREQ = 50000000
 )(
@@ -26,12 +27,10 @@ module temporizador_programable #(
     reg [31:0] div_cnt;
     reg tick_1hz;
 
-    // Registros ajustados al tamaño necesario para ahorrar área
-    reg [7:0] cnt_h; // 8 bits (0-255 horas)
-    reg [5:0] cnt_m; // 6 bits (0-59 minutos)
-    reg [5:0] cnt_s; // 6 bits (0-59 segundos)
+    reg [7:0] cnt_h; 
+    reg [5:0] cnt_m; 
+    reg [5:0] cnt_s; 
 
-    // Comparador Triple (Bajo consumo de área combinacional)
     wire meta_alcanzada = (cnt_h == horas_i) && 
                           ({2'b00, cnt_m} == minutos_i) && 
                           ({2'b00, cnt_s} == segundos_i);
@@ -55,8 +54,12 @@ module temporizador_programable #(
             if (hora_rise) hora_cargada <= 1'b1;
             else if (start_rise) hora_cargada <= 1'b0;
 
-            // Generador de prescaler (1Hz)
-            if (div_cnt == (CLK_FREQ - 1)) begin 
+            // Generador de prescaler (Acelerado si es simulación)
+            `ifdef COCOTB
+                if (div_cnt == 32'd50) begin 
+            `else
+                if (div_cnt == (CLK_FREQ - 1)) begin 
+            `endif
                 div_cnt <= 32'd0; 
                 tick_1hz <= 1'b1; 
             end else begin 
@@ -64,27 +67,21 @@ module temporizador_programable #(
                 tick_1hz <= 1'b0; 
             end
 
-            // Lógica de Control y Cascada de contadores
             if (start_rise && hora_cargada) begin
-                // Iniciar medición: Reset de contadores
                 cnt_h    <= 8'd0; 
                 cnt_m    <= 6'd0; 
                 cnt_s    <= 6'd0;
                 salida_o <= 1'b0;
                 activo_o <= 1'b1;
-                
-                // Caso especial: si la hora cargada es 00:00:00
                 if (horas_i == 0 && minutos_i == 0 && segundos_i == 0) begin
                     salida_o <= 1'b1;
                     activo_o <= 1'b0;
                 end
-                
             end else if (activo_o) begin
                 if (meta_alcanzada) begin
-                    salida_o <= 1'b1; // ¡Tiempo cumplido!
+                    salida_o <= 1'b1; 
                     activo_o <= 1'b0;
                 end else if (tick_1hz) begin
-                    // El "Dominó" de los contadores
                     if (cnt_s == 6'd59) begin
                         cnt_s <= 6'd0;
                         if (cnt_m == 6'd59) begin
