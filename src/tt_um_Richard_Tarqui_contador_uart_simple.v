@@ -17,7 +17,7 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     wire tx_output;
     wire trama_ok_signal;
 
-    // --- Sincronizador Centralizado (Ahorro de celdas en submódulos) ---
+    // Sincronizador Centralizado
     reg [2:0] signal_sync;
     always @(posedge clk) signal_sync <= {signal_sync[1:0], raw_signal};
     wire signal_clean = signal_sync[2];
@@ -30,16 +30,22 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .data_o(rx_data), .valid_o(rx_valid), .ready_i(1'b1)
     );
 
-    // --- Cables de control y datos directos ---
     wire       reset_pulse, init_pulse, error_instruccion, Enviando;
     wire       load_h, load_m, load_s;
     wire [7:0] parser_data;
 
-    // OPTIMIZACIÓN: Solo un registro de 1 bit para el estado, en lugar de 24 bits
+    // --- FIX: Separación de Reset Asíncrono y Síncrono ---
     reg hora_cargada_reg;
     always @(posedge clk or posedge rst) begin
-        if (rst || reset_pulse) hora_cargada_reg <= 1'b0;
-        else if (load_s)        hora_cargada_reg <= 1'b1; 
+        if (rst) begin
+            hora_cargada_reg <= 1'b0; // Reset físico (botón/encendido)
+        end else begin
+            if (reset_pulse) begin
+                hora_cargada_reg <= 1'b0; // Reset lógico (comando UART 'R')
+            end else if (load_s) begin
+                hora_cargada_reg <= 1'b1; // Carga de datos
+            end
+        end
     end
 
     uart_parser u_parser (
@@ -51,7 +57,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
 
     wire enable_sys, salida_temp, tick_1hz_sys;
 
-    // El temporizador ahora es el único que almacena los valores de tiempo
     temporizador_programable #(.CLK_FREQ(50_000_000)) u_timer (
         .clk_i(clk), .reset_i(rst | reset_pulse), .start_i(init_pulse),
         .load_h(load_h), .load_m(load_m), .load_s(load_s),
@@ -75,7 +80,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .frecuencia_o(frecuencia1), .dato_listo_o(dato_listo1)
     );
 
-    // El bit de estado ahora refleja si se cargó el último byte del tiempo
     wire [7:0] estado = {4'b0000, enable_sys, salida_temp, hora_cargada_reg, error_instruccion};
 
     uart_trama_sender #(.CLK_FREQ(50_000_000), .BAUDRATE(115200)) u_sender (
