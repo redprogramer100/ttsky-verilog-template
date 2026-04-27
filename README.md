@@ -1,42 +1,41 @@
-![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
+# UART-Controlled Frequency Meter & Timer
 
-# Tiny Tapeout Verilog Project Template
+## How it works
+This project integrates three high-precision measurement tools into a single 1x1 ASIC tile, specifically optimized for the Sky130 process:
 
-- [Read the documentation for project](docs/info.md)
+1.  **Programmable Timer:** A countdown timer set via UART in `HH:MM:SS` format. It uses a cascaded counter architecture to minimize area usage.
+2.  **Frequency Meter:** Measures the frequency of an external signal on `ui_in[1]` using a precise 1-second gate window.
+3.  **Pulse Counter:** Records the total number of falling edges detected during the measurement period.
 
-## What is Tiny Tapeout?
+The entire system is managed via a UART interface operating at **115200 baud** (8N1).
 
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
+## Inputs/Outputs Detail
+| Pin | Label | Direction | Description |
+|-----|-------|-----------|-------------|
+| ui[0] | RX | Input | UART Data Input. Receives ASCII commands. |
+| ui[1] | Signal | Input | The external signal to be measured (Frequency/Pulses). |
+| uo[0] | TX | Output | UART Data Output. Transmits telemetry frames. |
+| uo[1] | Frame OK| Output | Generates a 1-clock cycle pulse when a full telemetry frame is sent. |
+| uo[2] | Active | Output | HIGH when the timer is running and measurement gates are open. |
 
-To learn more and get started, visit https://tinytapeout.com.
+## UART Command Set
+- `Hhh:mm:ss`: Load timer value (e.g., `H00:05:00` for 5 minutes).
+- `I`: **Initialize** (Starts the countdown and measurement).
+- `R`: **Reset** (Stops the system and clears all registers).
+- `E`: **Enable** telemetry (Starts periodic data reporting).
+- `Y`: **Stop** telemetry (Disables data reporting).
 
-## Set up your Verilog project
+## Telemetry Data Format
+When enabled, the chip transmits a 13-byte frame at 115200 baud:
+`$ [Count_H] [Count_L] / [Freq_H] [Freq_L] / [Status] / [#] / [\n] [\r]`
 
-1. Add your Verilog files to the `src` folder.
-2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/info.md](docs/info.md) and add a description of your project.
-4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
+- **Status Byte:** - Bit 2: System Active.
+    - Bit 1: Timer Finished.
+    - Bit 0: UART Command Error.
 
-The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
-
-## Enable GitHub actions to build the results page
-
-- [Enabling GitHub Pages](https://tinytapeout.com/faq/#my-github-action-is-failing-on-the-pages-part)
-
-## Resources
-
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
-
-## What next?
-
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
-- Edit [this README](README.md) and explain your design, how it works, and how to test it.
-- Share your project on your social network of choice:
-  - LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-  - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-  - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-  - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+## How to test
+1. Connect a USB-to-UART bridge to `ui_in[0]` and `uo_out[0]`.
+2. Connect a signal generator or a pulse source to `ui_in[1]`.
+3. Use a serial terminal at **115200 baud**.
+4. Send `H00:00:10` to set a 10-second window.
+5. Send `E` then `I`. You will see data frames appearing in your terminal.
