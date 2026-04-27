@@ -1,13 +1,6 @@
-/*
- * temporizador_programable.v
- *
- * OPTIMIZACIÓN ASIC: Diseño basado en contadores en cascada.
- * Se eliminaron los multiplicadores gigantes (3600, 60) para reducir 
- * masivamente el área lógica en el tile de Tiny Tapeout.
- */
-/*
- * temporizador_programable.v
- * Generador de ventana de tiempo y reloj de 1Hz base.
+/* * Programmable Countdown Timer:
+ * Generates a 1-second gate signal for frequency measurement.
+ * Features simulation-speed optimization for Cocotb testing.
  */
 
 `default_nettype none

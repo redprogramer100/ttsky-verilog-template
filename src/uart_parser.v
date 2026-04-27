@@ -1,9 +1,6 @@
-/*
- * uart_parser.v
- * * OPTIMIZACIÓN EXTREMA PARA ASIC (Tiny Tapeout):
- * 1. Multiplicaciones por 10 convertidas a (x<<3) + (x<<1).
- * 2. Contador de pulso de error reducido a 23 bits (aprox 0.16s).
- * 3. Eliminación de lógica redundante para minimizar celdas.
+/* * UART Command Parser:
+ * Decodes ASCII commands and generates synchronous load pulses.
+ * Optimized for area by using shifts instead of hardware multipliers.
  */
 `default_nettype none
 module uart_parser (
