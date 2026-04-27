@@ -6,7 +6,12 @@
  * 'H'hh:mm:ss -> Carga de tiempo.
  * OPTIMIZACIÓN: Bloqueo de valores > 59 para minutos y segundos.
  */
-
+/*
+ * uart_parser.v
+ * OPTIMIZACIÓN ASIC: Multiplicaciones por 10 convertidas a desplazamientos (shifts).
+ * Contador de error ajustado al bit-width exacto.
+ */
+`default_nettype none
 module uart_parser #(
     parameter CLK_FREQ = 50000000
 )(
@@ -25,33 +30,22 @@ module uart_parser #(
     output reg         Enviando_o
 );
 
-    // Generador de pulso de error
-    localparam PULSE_MAX = 25000000; // 0.5s a 50MHz
-    reg [31:0] pulse_cnt;
+    localparam PULSE_MAX = 25000000; 
+    // OPTIMIZACIÓN: 25 millones cabe en 25 bits (2^25 = 33M), no necesitamos 32 bits
+    reg [24:0] pulse_cnt; 
     reg        pulse_active;
 
-    // Estados de la FSM
-    localparam IDLE = 4'd0;
-    localparam H1   = 4'd1;
-    localparam H2   = 4'd2;
-    localparam C1   = 4'd3;
-    localparam M1   = 4'd4;
-    localparam M2   = 4'd5;
-    localparam C2   = 4'd6;
-    localparam S1   = 4'd7;
-    localparam S2   = 4'd8;
+    localparam IDLE = 4'd0, H1 = 4'd1, H2 = 4'd2, C1 = 4'd3, M1 = 4'd4, 
+               M2 = 4'd5, C2 = 4'd6, S1 = 4'd7, S2 = 4'd8;
 
     reg [3:0] state;
     reg [3:0] d1;
 
-    // Función ASCII a número
     function [3:0] ascii_to_num;
         input [7:0] c;
         begin
-            if (c >= 8'h30 && c <= 8'h39) // '0' a '9'
-                ascii_to_num = c[3:0];
-            else
-                ascii_to_num = 4'd0;
+            if (c >= 8'h30 && c <= 8'h39) ascii_to_num = c[3:0];
+            else ascii_to_num = 4'd0;
         end
     endfunction
 
@@ -66,26 +60,23 @@ module uart_parser #(
             error_pulse_o <= 1'b0;
             horaLista_o   <= 1'b0;
             pulse_active  <= 1'b0;
-            pulse_cnt     <= 32'd0;
+            pulse_cnt     <= 25'd0;
             Enviando_o    <= 1'b0;
             d1            <= 4'd0;
         end else begin
-            // Pulso de salida por defecto
             horaLista_o <= 1'b0;
 
-            // Lógica de error
             if (pulse_active) begin
                 if (pulse_cnt < PULSE_MAX) begin
-                    pulse_cnt     <= pulse_cnt + 32'd1;
+                    pulse_cnt     <= pulse_cnt + 25'd1;
                     error_pulse_o <= 1'b1;
                 end else begin
                     pulse_active  <= 1'b0;
-                    pulse_cnt     <= 32'd0;
+                    pulse_cnt     <= 25'd0;
                     error_pulse_o <= 1'b0;
                 end
             end
 
-            // FSM de Comandos
             if (rx_valid) begin
                 case (state)
                     IDLE: begin
@@ -103,60 +94,49 @@ module uart_parser #(
                             default: pulse_active <= 1'b1;
                         endcase
                     end
-
                     H1: begin
                         if (rx_data >= 8'h30 && rx_data <= 8'h39) begin
                             d1 <= ascii_to_num(rx_data);
                             state <= H2;
                         end else state <= IDLE;
                     end
-
                     H2: begin
                         if (rx_data >= 8'h30 && rx_data <= 8'h39) begin
-                            hora_o <= (d1 * 4'd10) + ascii_to_num(rx_data);
+                            // OPTIMIZACIÓN: d1 * 10 es igual a (d1 * 8) + (d1 * 2)
+                            hora_o <= (d1 << 3) + (d1 << 1) + ascii_to_num(rx_data);
                             state <= C1;
                         end else state <= IDLE;
                     end
-
                     C1: state <= (rx_data == 8'h3A) ? M1 : IDLE; // ':'
-
                     M1: begin
-                        // OPTIMIZACIÓN: Solo permite decenas de '0' a '5'
                         if (rx_data >= 8'h30 && rx_data <= 8'h35) begin
                             d1 <= ascii_to_num(rx_data);
                             state <= M2;
                         end else state <= IDLE;
                     end
-
                     M2: begin
                         if (rx_data >= 8'h30 && rx_data <= 8'h39) begin
-                            min_o <= (d1 * 4'd10) + ascii_to_num(rx_data);
+                            min_o <= (d1 << 3) + (d1 << 1) + ascii_to_num(rx_data);
                             state <= C2;
                         end else state <= IDLE;
                     end
-
                     C2: state <= (rx_data == 8'h3A) ? S1 : IDLE; // ':'
-
                     S1: begin
-                        // OPTIMIZACIÓN: Solo permite decenas de '0' a '5'
                         if (rx_data >= 8'h30 && rx_data <= 8'h35) begin
                             d1 <= ascii_to_num(rx_data);
                             state <= S2;
                         end else state <= IDLE;
                     end
-
                     S2: begin
                         if (rx_data >= 8'h30 && rx_data <= 8'h39) begin
-                            seg_o       <= (d1 * 4'd10) + ascii_to_num(rx_data);
+                            seg_o       <= (d1 << 3) + (d1 << 1) + ascii_to_num(rx_data);
                             horaLista_o <= 1'b1;
                         end
                         state <= IDLE;
                     end
-
                     default: state <= IDLE;
                 endcase
             end
         end
     end
-
 endmodule
