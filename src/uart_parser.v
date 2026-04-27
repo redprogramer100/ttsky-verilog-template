@@ -26,34 +26,70 @@ module uart_parser #(
 
     always @(posedge clk_i or posedge reset_i) begin
         if (reset_i) begin
-            state <= IDLE; {hora_o, min_o, seg_o} <= 24'd0;
+            state <= IDLE; 
+            {hora_o, min_o, seg_o} <= 24'd0;
             {reset_pulse_o, init_pulse_o, error_pulse_o, horaLista_o, Enviando_o} <= 5'b0;
             d1 <= 4'd0;
         end else begin
-            {reset_pulse_o, init_pulse_o, error_pulse_o, horaLista_o} <= 4'b0; // Pulsos por defecto
+            // Pulsos de un solo ciclo para ahorrar lógica de contadores
+            {reset_pulse_o, init_pulse_o, error_pulse_o, horaLista_o} <= 4'b0;
 
             if (rx_valid) begin
                 case (state)
                     IDLE: begin
                         case (rx_data)
-                            8'h52: begin reset_pulse_o <= 1'b1; {hora_o, min_o, seg_o} <= 24'd0; end
-                            8'h53: reset_pulse_o <= 1'b0;
-                            8'h49: init_pulse_o  <= 1'b1;
-                            8'h58: init_pulse_o  <= 1'b0;
-                            8'h48: state         <= H1;
-                            8'h45: Enviando_o    <= 1'b1;
-                            8'h59: Enviando_o    <= 1'b0;
-                            default: error_pulse_o <= 1'b1; // Pulso de 1 ciclo
+                            8'h52: begin reset_pulse_o <= 1'b1; {hora_o, min_o, seg_o} <= 24'd0; end // 'R'
+                            8'h53: reset_pulse_o <= 1'b0; // 'S'
+                            8'h49: init_pulse_o  <= 1'b1; // 'I'
+                            8'h58: init_pulse_o  <= 1'b0; // 'X'
+                            8'h48: state         <= H1;   // 'H'
+                            8'h45: Enviando_o    <= 1'b1; // 'E'
+                            8'h59: Enviando_o    <= 1'b0; // 'Y'
+                            default: error_pulse_o <= 1'b1;
                         endcase
                     end
-                    H1: if (rx_data >= 8'h30 && rx_data <= 8'h39) begin d1 <= rx_data[3:0]; state <= H2; end else state <= IDLE;
-                    H2: if (rx_data >= 8'h30 && rx_data <= 8'h39) begin hora_o <= (d1 << 3) + (d1 << 1) + rx_data[3:0]; state <= C1; end else state <= IDLE;
-                    C1: state <= (rx_data == 8'h3A) ? M1 : IDLE;
-                    M1: if (rx_data >= 8'h30 && rx_data <= 8'h35) begin d1 <= rx_data[3:0]; state <= M2; end else state <= IDLE;
-                    M2: if (rx_data >= 8'h30 && rx_data <= 8'h39) begin min_o <= (d1 << 3) + (d1 << 1) + rx_data[3:0]; state <= C2; end else state <= IDLE;
-                    C2: state <= (rx_data == 8'h3A) ? S1 : IDLE;
-                    S1: if (rx_data >= 8'h30 && rx_data <= 8'h35) begin d1 <= rx_data[3:0]; state <= S2; end else state <= IDLE;
-                    S2: if (rx_data >= 8'h30 && rx_data <= 8'h39) begin seg_o <= (d1 << 3) + (d1 << 1) + rx_data[3:0]; horaLista_o <= 1'b1; end state <= IDLE;
+
+                    H1: begin
+                        if (rx_data >= 8'h30 && rx_data <= 8'h39) begin d1 <= rx_data[3:0]; state <= H2; end 
+                        else state <= IDLE;
+                    end
+
+                    H2: begin
+                        if (rx_data >= 8'h30 && rx_data <= 8'h39) begin 
+                            hora_o <= (d1 << 3) + (d1 << 1) + rx_data[3:0]; 
+                            state <= C1; 
+                        end else state <= IDLE;
+                    end
+
+                    C1: begin state <= (rx_data == 8'h3A) ? M1 : IDLE; end
+
+                    M1: begin
+                        if (rx_data >= 8'h30 && rx_data <= 8'h35) begin d1 <= rx_data[3:0]; state <= M2; end 
+                        else state <= IDLE;
+                    end
+
+                    M2: begin
+                        if (rx_data >= 8'h30 && rx_data <= 8'h39) begin 
+                            min_o <= (d1 << 3) + (d1 << 1) + rx_data[3:0]; 
+                            state <= C2; 
+                        end else state <= IDLE;
+                    end
+
+                    C2: begin state <= (rx_data == 8'h3A) ? S1 : IDLE; end
+
+                    S1: begin
+                        if (rx_data >= 8'h30 && rx_data <= 8'h35) begin d1 <= rx_data[3:0]; state <= S2; end 
+                        else state <= IDLE;
+                    end
+
+                    S2: begin
+                        if (rx_data >= 8'h30 && rx_data <= 8'h39) begin 
+                            seg_o <= (d1 << 3) + (d1 << 1) + rx_data[3:0]; 
+                            horaLista_o <= 1'b1; 
+                        end 
+                        state <= IDLE;
+                    end
+
                     default: state <= IDLE;
                 endcase
             end
