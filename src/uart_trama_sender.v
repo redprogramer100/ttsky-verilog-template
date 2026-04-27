@@ -5,8 +5,8 @@ module uart_trama_sender #(
 )(
     input  wire        clk_i,
     input  wire        reset_i,
-    input  wire [31:0] contador1_i,
-    input  wire [31:0] frecuencia1_i,
+    input  wire [15:0] contador1_i,   // <-- REDUCIDO A 16 BITS
+    input  wire [15:0] frecuencia1_i, // <-- REDUCIDO A 16 BITS
     input  wire [7:0]  estado_i,
     input  wire [7:0]  fin_i,
     input  wire        Enviando_i,
@@ -15,7 +15,7 @@ module uart_trama_sender #(
     output wire        tx_o,
     output reg         trama_ok_o
 );
-    localparam TRAMA_LEN = 17;
+    localparam TRAMA_LEN = 13; // <-- Reducido de 17 a 13 bytes
     reg [7:0] trama [0:TRAMA_LEN-1];
     reg        tx_valid;
     reg  [7:0] tx_data;
@@ -47,17 +47,25 @@ module uart_trama_sender #(
             case (state)
                 S_IDLE: if (Enviando_i && listo_rise && !trama_enviada) state <= S_LOAD;
                 S_LOAD: begin
-                    trama[0] <= 8'h24; trama[1] <= contador1_i[31:24]; trama[2] <= contador1_i[23:16];
-                    trama[3] <= contador1_i[15:8]; trama[4] <= contador1_i[7:0]; trama[5] <= 8'h2F;
-                    trama[6] <= frecuencia1_i[31:24]; trama[7] <= frecuencia1_i[23:16];
-                    trama[8] <= frecuencia1_i[15:8]; trama[9] <= frecuencia1_i[7:0];
-                    trama[10] <= 8'h2F; trama[11] <= estado_i; trama[12] <= 8'h2F;
-                    trama[13] <= fin_i; trama[14] <= 8'h2F; trama[15] <= 8'h0A; trama[16] <= 8'h0D;
-                    byte_idx <= 5'd0; state <= S_SEND;
+                    trama[0]  <= 8'h24; // '$'
+                    trama[1]  <= contador1_i[15:8]; // Byte MSB
+                    trama[2]  <= contador1_i[7:0];  // Byte LSB
+                    trama[3]  <= 8'h2F; // '/'
+                    trama[4]  <= frecuencia1_i[15:8]; // Byte MSB
+                    trama[5]  <= frecuencia1_i[7:0];  // Byte LSB
+                    trama[6]  <= 8'h2F; // '/'
+                    trama[7]  <= estado_i;
+                    trama[8]  <= 8'h2F; // '/'
+                    trama[9]  <= fin_i;
+                    trama[10] <= 8'h2F; // '/'
+                    trama[11] <= 8'h0A; // '\n' (Line Feed)
+                    trama[12] <= 8'h0D; // '\r' (Carriage Return)
+                    byte_idx  <= 5'd0; 
+                    state     <= S_SEND;
                 end
                 S_SEND: if (tx_ready) begin tx_data <= trama[byte_idx]; tx_valid <= 1'b1; state <= S_WAIT; end
                 S_WAIT: if (tx_done) begin
-                    if (byte_idx < 5'd16) begin byte_idx <= byte_idx + 5'd1; state <= S_SEND; end
+                    if (byte_idx < 5'd12) begin byte_idx <= byte_idx + 5'd1; state <= S_SEND; end // <-- Límite ajustado a 12
                     else state <= S_DONE;
                 end
                 S_DONE: begin trama_ok_o <= 1'b1; trama_enviada <= 1'b1; state <= S_IDLE; end

@@ -1,41 +1,22 @@
-/*
- * tt_um_Richard_Tarqui_contador_uart_simple.v
- *
- * Integrated Frequency Meter & Pulse Counter for Tiny Tapeout.
- * This module contains the top-level pin mapping and the internal 
- * controller logic (formerly CHIP1contador).
- *
- * Author: Richard Alfredo Tarqui Mamani & Gustavo Ismael Chavez Mamani
- */
-
 `default_nettype none
 
 module tt_um_Richard_Tarqui_contador_uart_simple (
-    input  wire [7:0] ui_in,    // Dedicated inputs
-    output wire [7:0] uo_out,   // Dedicated outputs
-    input  wire [7:0] uio_in,   // IOs: Input path
-    output wire [7:0] uio_out,  // IOs: Output path
-    output wire [7:0] uio_oe,   // IOs: Enable path (active high)
-    input  wire       ena,      // Design enable
-    input  wire       clk,      // System clock (Default 50MHz)
-    input  wire       rst_n     // Global reset (Active LOW)
+    input  wire [7:0] ui_in,    
+    output wire [7:0] uo_out,   
+    input  wire [7:0] uio_in,   
+    output wire [7:0] uio_out,  
+    output wire [7:0] uio_oe,   
+    input  wire       ena,      
+    input  wire       clk,      
+    input  wire       rst_n     
 );
 
-    // ------------------------------------------------------------------------
-    // INTERNAL SIGNALS & RESET LOGIC
-    // ------------------------------------------------------------------------
-    wire rst = ~rst_n; // Invert active-low reset for internal logic
-
-    // Pin Assignments
-    wire rx_input     = ui_in[0];   // UART RX
-    wire signal_input = ui_in[1];   // External Signal to Measure
-    
+    wire rst = ~rst_n; 
+    wire rx_input     = ui_in[0];   
+    wire signal_input = ui_in[1];   
     wire tx_output;
     wire trama_ok_signal;
 
-    // ------------------------------------------------------------------------
-    // UART RECEIVER INSTANTIATION
-    // ------------------------------------------------------------------------
     wire [7:0] rx_data;
     wire       rx_valid;
 
@@ -51,9 +32,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .ready_i(1'b1)
     );
 
-    // ------------------------------------------------------------------------
-    // COMMAND PARSER INSTANTIATION
-    // ------------------------------------------------------------------------
     wire       reset_pulse;
     wire       init_pulse;
     wire       error_instruccion;
@@ -80,9 +58,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .Enviando_o    (Enviando)
     );
 
-    // ------------------------------------------------------------------------
-    // PROGRAMMABLE TIMER INSTANTIATION
-    // ------------------------------------------------------------------------
     wire enable_sys;
     wire salida_temp;
 
@@ -100,10 +75,8 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .activo_o   (enable_sys)
     );
 
-    // ------------------------------------------------------------------------
-    // PULSE COUNTER INSTANTIATION
-    // ------------------------------------------------------------------------
-    wire [31:0] contador1;
+    // <--- CABLES REDUCIDOS A 16 BITS --->
+    wire [15:0] contador1;
     wire        sin_pulso1;
 
     contador_pulsos u_contador1 (
@@ -115,10 +88,7 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .sin_pulso_o(sin_pulso1)
     );
 
-    // ------------------------------------------------------------------------
-    // FREQUENCY METER INSTANTIATION (Optimizado sin división)
-    // ------------------------------------------------------------------------
-    wire [31:0] frecuencia1;
+    wire [15:0] frecuencia1;
     wire        dato_listo1;
 
     frecuencimetro #(
@@ -133,9 +103,6 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .dato_listo_o(dato_listo1)
     );
 
-    // ------------------------------------------------------------------------
-    // STATUS BYTE & TELEMETRY SENDER
-    // ------------------------------------------------------------------------
     wire [7:0] estado = {4'b0000, enable_sys, salida_temp, horaLista, error_instruccion};
 
     uart_trama_sender #(
@@ -144,10 +111,10 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     ) u_sender (
         .clk_i         (clk),
         .reset_i       (rst | reset_pulse),
-        .contador1_i   (contador1),
-        .frecuencia1_i (frecuencia1),
+        .contador1_i   (contador1),      // Ahora recibe 16 bits
+        .frecuencia1_i (frecuencia1),    // Ahora recibe 16 bits
         .estado_i      (estado),
-        .fin_i         (8'h23),         // '#' character
+        .fin_i         (8'h23),         
         .Enviando_i    (Enviando),
         .listo_cnt1_i  (dato_listo1),
         .listo_freq1_i (dato_listo1),
@@ -155,19 +122,14 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .trama_ok_o    (trama_ok_signal)
     );
 
-    // ------------------------------------------------------------------------
-    // OUTPUT PIN CONNECTIONS
-    // ------------------------------------------------------------------------
-    assign uo_out[0] = tx_output;        // UART TX
-    assign uo_out[1] = trama_ok_signal;  // Done pulse
-    assign uo_out[2] = enable_sys;      // Active measurement flag
-    assign uo_out[7:3] = 5'b00000;      // Reserved
+    assign uo_out[0] = tx_output;       
+    assign uo_out[1] = trama_ok_signal; 
+    assign uo_out[2] = enable_sys;      
+    assign uo_out[7:3] = 5'b00000;      
 
-    // Tie bidirectional IOs to ground
     assign uio_out = 8'b00000000;
     assign uio_oe  = 8'b00000000;
 
-    // Suppress unused signal warnings
     wire _unused = &{ena, ui_in[7:2], uio_in, 1'b0};
 
 endmodule
