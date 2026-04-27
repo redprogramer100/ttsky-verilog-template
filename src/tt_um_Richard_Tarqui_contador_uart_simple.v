@@ -17,10 +17,10 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     wire tx_output;
     wire trama_ok_signal;
 
-    // --- OPTIMIZACIÓN: Sincronizador Centralizado ---
+    // --- Sincronizador Centralizado (Ahorro de celdas en submódulos) ---
     reg [2:0] signal_sync;
     always @(posedge clk) signal_sync <= {signal_sync[1:0], raw_signal};
-    wire signal_clean = signal_sync[2]; // Señal lista para todos los módulos
+    wire signal_clean = signal_sync[2];
 
     wire [7:0] rx_data;
     wire       rx_valid;
@@ -30,20 +30,32 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .data_o(rx_data), .valid_o(rx_valid), .ready_i(1'b1)
     );
 
-    wire       reset_pulse, init_pulse, error_instruccion, horaLista, Enviando;
-    wire [7:0] hora, min, seg;
+    // --- Cables de control y datos directos ---
+    wire       reset_pulse, init_pulse, error_instruccion, Enviando;
+    wire       load_h, load_m, load_s;
+    wire [7:0] parser_data;
 
-    uart_parser #(.CLK_FREQ(50_000_000)) u_parser (
+    // OPTIMIZACIÓN: Solo un registro de 1 bit para el estado, en lugar de 24 bits
+    reg hora_cargada_reg;
+    always @(posedge clk or posedge rst) begin
+        if (rst || reset_pulse) hora_cargada_reg <= 1'b0;
+        else if (load_s)        hora_cargada_reg <= 1'b1; 
+    end
+
+    uart_parser u_parser (
         .clk_i(clk), .reset_i(rst), .rx_data(rx_data), .rx_valid(rx_valid),
         .reset_pulse_o(reset_pulse), .init_pulse_o(init_pulse), .error_pulse_o(error_instruccion),
-        .horaLista_o(horaLista), .hora_o(hora), .min_o(min), .seg_o(seg), .Enviando_o(Enviando)
+        .load_h_o(load_h), .load_m_o(load_m), .load_s_o(load_s),
+        .data_o(parser_data), .Enviando_o(Enviando)
     );
 
     wire enable_sys, salida_temp, tick_1hz_sys;
 
+    // El temporizador ahora es el único que almacena los valores de tiempo
     temporizador_programable #(.CLK_FREQ(50_000_000)) u_timer (
         .clk_i(clk), .reset_i(rst | reset_pulse), .start_i(init_pulse),
-        .horaLista_i(horaLista), .horas_i(hora), .minutos_i(min), .segundos_i(seg),
+        .load_h(load_h), .load_m(load_m), .load_s(load_s),
+        .data_i(parser_data),
         .salida_o(salida_temp), .activo_o(enable_sys), .tick_1hz_o(tick_1hz_sys)
     );
 
@@ -52,18 +64,19 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
 
     contador_pulsos u_contador1 (
         .clk_i(clk), .reset_i(rst | reset_pulse), .enable_i(enable_sys),
-        .P_clean_i(signal_clean), // Usamos la señal centralizada
+        .P_clean_i(signal_clean),
         .contador_o(contador1), .sin_pulso_o(sin_pulso1)
     );
 
     frecuencimetro u_freq1 (
         .clk_i(clk), .reset_i(rst | reset_pulse), .enable_i(enable_sys),
-        .P_clean_i(signal_clean), // Usamos la señal centralizada
+        .P_clean_i(signal_clean),
         .tick_1hz_i(tick_1hz_sys),
         .frecuencia_o(frecuencia1), .dato_listo_o(dato_listo1)
     );
 
-    wire [7:0] estado = {4'b0000, enable_sys, salida_temp, horaLista, error_instruccion};
+    // El bit de estado ahora refleja si se cargó el último byte del tiempo
+    wire [7:0] estado = {4'b0000, enable_sys, salida_temp, hora_cargada_reg, error_instruccion};
 
     uart_trama_sender #(.CLK_FREQ(50_000_000), .BAUDRATE(115200)) u_sender (
         .clk_i(clk), .reset_i(rst | reset_pulse), .contador1_i(contador1),
@@ -80,4 +93,5 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     assign uio_oe  = 8'b00000000;
 
     wire _unused = &{ena, ui_in[7:2], uio_in, 1'b0};
+
 endmodule
