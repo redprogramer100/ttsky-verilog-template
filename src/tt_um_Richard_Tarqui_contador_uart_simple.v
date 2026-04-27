@@ -60,6 +60,7 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
 
     wire enable_sys;
     wire salida_temp;
+    wire tick_1hz_sys; // <-- NUEVO CABLE PARA EL RELOJ MAESTRO
 
     temporizador_programable #(
         .CLK_FREQ(50_000_000)
@@ -72,10 +73,10 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
         .minutos_i  (min),
         .segundos_i (seg),
         .salida_o   (salida_temp),
-        .activo_o   (enable_sys)
+        .activo_o   (enable_sys),
+        .tick_1hz_o (tick_1hz_sys) // <-- CONECTAMOS SALIDA
     );
 
-    // <--- CABLES REDUCIDOS A 16 BITS --->
     wire [15:0] contador1;
     wire        sin_pulso1;
 
@@ -91,14 +92,13 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     wire [15:0] frecuencia1;
     wire        dato_listo1;
 
-    frecuencimetro #(
-        .CLK_FREQ(50_000_000),
-        .GATE_SEC(1)
-    ) u_freq1 (
+    // Sin parámetros, ahora depende del temporizador
+    frecuencimetro u_freq1 (
         .clk_i       (clk),
         .reset_i     (rst | reset_pulse),
         .enable_i    (enable_sys),
         .pulso_i     (signal_input),
+        .tick_1hz_i  (tick_1hz_sys), // <-- CONECTAMOS ENTRADA
         .frecuencia_o(frecuencia1),
         .dato_listo_o(dato_listo1)
     );
@@ -111,8 +111,8 @@ module tt_um_Richard_Tarqui_contador_uart_simple (
     ) u_sender (
         .clk_i         (clk),
         .reset_i       (rst | reset_pulse),
-        .contador1_i   (contador1),      // Ahora recibe 16 bits
-        .frecuencia1_i (frecuencia1),    // Ahora recibe 16 bits
+        .contador1_i   (contador1),
+        .frecuencia1_i (frecuencia1),
         .estado_i      (estado),
         .fin_i         (8'h23),         
         .Enviando_i    (Enviando),

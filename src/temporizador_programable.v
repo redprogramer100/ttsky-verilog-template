@@ -5,7 +5,11 @@
  * Se eliminaron los multiplicadores gigantes (3600, 60) para reducir 
  * masivamente el área lógica en el tile de Tiny Tapeout.
  */
-
+/*
+ * temporizador_programable.v
+ * Generador de ventana de tiempo y reloj de 1Hz base.
+ */
+`default_nettype none
 
 module temporizador_programable #(
     parameter CLK_FREQ = 50000000
@@ -18,14 +22,14 @@ module temporizador_programable #(
     input  wire [7:0]  minutos_i,
     input  wire [7:0]  segundos_i,
     output reg         salida_o,
-    output reg         activo_o
+    output reg         activo_o,
+    output reg         tick_1hz_o   // <-- NUEVA SALIDA
 );
     reg start_prev, hora_prev, hora_cargada;
     wire start_rise = start_i & ~start_prev;
     wire hora_rise = horaLista_i & ~hora_prev;
 
     reg [31:0] div_cnt;
-    reg tick_1hz;
 
     reg [7:0] cnt_h; 
     reg [5:0] cnt_m; 
@@ -41,7 +45,7 @@ module temporizador_programable #(
             hora_prev    <= 1'b0; 
             hora_cargada <= 1'b0;
             div_cnt      <= 32'd0; 
-            tick_1hz     <= 1'b0;
+            tick_1hz_o   <= 1'b0;  
             cnt_h        <= 8'd0; 
             cnt_m        <= 6'd0; 
             cnt_s        <= 6'd0;
@@ -54,17 +58,16 @@ module temporizador_programable #(
             if (hora_rise) hora_cargada <= 1'b1;
             else if (start_rise) hora_cargada <= 1'b0;
 
-            // Generador de prescaler (Acelerado si es simulación)
             `ifdef COCOTB
                 if (div_cnt == 32'd50) begin 
             `else
                 if (div_cnt == (CLK_FREQ - 1)) begin 
             `endif
                 div_cnt <= 32'd0; 
-                tick_1hz <= 1'b1; 
+                tick_1hz_o <= 1'b1; // Genera el pulso maestro
             end else begin 
                 div_cnt <= div_cnt + 32'd1; 
-                tick_1hz <= 1'b0; 
+                tick_1hz_o <= 1'b0; 
             end
 
             if (start_rise && hora_cargada) begin
@@ -81,7 +84,7 @@ module temporizador_programable #(
                 if (meta_alcanzada) begin
                     salida_o <= 1'b1; 
                     activo_o <= 1'b0;
-                end else if (tick_1hz) begin
+                end else if (tick_1hz_o) begin
                     if (cnt_s == 6'd59) begin
                         cnt_s <= 6'd0;
                         if (cnt_m == 6'd59) begin
