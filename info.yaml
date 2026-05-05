@@ -1,6 +1,6 @@
 # Tiny Tapeout project information
 project:
-  title:        "UART Meter & Timer"
+  title:        "UART - Controlled Frecuency Meter &  Timer - IEEE"
   author:       "Richard Alfredo Tarqui Mamani & Gustavo Ismael Chavez Mamani"
   discord:      ""
   description:  "Frequency meter, pulse counter, and programmable timer controlled via UART at 115200 baud."
